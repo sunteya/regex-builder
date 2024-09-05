@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue 3 App</title>
+    <script src="https://unpkg.com/vue@3.5.0"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+</head>
+<body>
+  <div id="app" class="mx-auto max-w-screen-sm mt-12">
+    <table>
+      <tr>
+        <td><input type="checkbox" checked disabled /></td>
+        <td>
+          <div class="flex">
+            <span>&lt;</span>
+            <input v-model="root_tag" class="border border-gray-300 rounded px-2 mr-2" placeholder="标签" />
+            <span class="border border-gray-300 rounded mr-2">
+              <select v-model="root_attr_opt" class="mr-1">
+                <option value="include"></option>
+                <option value="exclude">!</option>
+              </select>
+              <input v-model="root_attr" class="px-2" placeholder="属性" />
+            </span>
+            <span>&gt;</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><input type="checkbox" checked disabled /></td>
+        <td class="pl-8">
+          <div class="flex">
+            <span>&lt;</span>
+            <input v-model="content_tag" class="border border-gray-300 rounded px-2 mr-2" placeholder="内容" />
+            <span class="border border-gray-300 rounded mr-2">
+              <select v-model="content_attr_opt" class="mr-1">
+                <option value="include"></option>
+                <option value="exclude">!</option>
+              </select>
+              <input v-model="content_attr" class="px-2" placeholder="属性" />
+            </span>
+            <span>&gt;</span>
+          </div>
+        </td>
+      </tr>
+      <tr v-if="root_tag != ''">
+        <td><input type="checkbox" v-model="root_close_include" /></td>
+        <td>
+          <span>&lt;/{{ root_tag }}&gt;</span>
+        </td>
+      </tr>
+    </table>
+
+    <div v-if="result" class="mt-6">
+      <button @click="copyToClipboard" class="border border-gray-300 rounded px-2 hover:bg-gray-100">copy</button>
+      <pre class="mt-2">{{ result }}</pre>
+    </div>
+  </div>
+
+<script>
+const { createApp } = Vue
+
+const App = {
+  data() {
+    return {
+      root_tag: '',
+      root_attr: '',
+      root_attr_opt: 'include',
+      root_close_include: false,
+
+      content_tag: '',
+      content_attr: '',
+      content_attr_opt: 'include',
+    }
+  },
+
+  computed: {
+    result() {
+      if (this.root_tag == "") {
+        return null
+      }
+
+      const lines = []
+
+      const root_tag_open = this.regexp_tag_open("root")
+      const root_tag_close = this.regexp_tag_close("root")
+      lines.push(root_tag_open)
+
+      if (!_.isEmpty(this.content_tag)) {
+        const content_tag_regexp = `<${this.content_tag}`
+        const before_content = `((?!${content_tag_regexp})(?!${root_tag_close})(.|\n))*`
+        const content_open = this.regexp_tag_open("content")
+        lines.push(before_content, content_open)
+      }
+
+      if (this.root_close_include) {
+        lines.push(`((?!${root_tag_close})(.|\n))*`)
+        lines.push(root_tag_close)
+      } else {
+        lines.push(`(?!${root_tag_close})`)
+      }
+
+      return lines.join("")
+    }
+  },
+  methods: {
+    regexp_tag_open(prefix, excludes = "") {
+      const tag = this[`${prefix}_tag`]
+      const attr = this[`${prefix}_attr`]
+      const attr_opt = this[`${prefix}_attr_opt`]
+
+      if (_.isEmpty(tag)) {
+        return ""
+      }
+
+      let root_tag_open = `<${tag}`
+      if (!_.isEmpty(attr)) {
+        const attr_regexp = attr
+
+        root_tag_open += `((?!${attr_regexp})([^>]|\n))*`
+
+        if (attr_opt == "include") {
+          root_tag_open += `${attr}`
+        } else {
+          root_tag_open += `(?!${attr})`
+        }
+
+        root_tag_open += `((?!${attr_regexp})([^>]|\n))*>`
+      } else {
+        root_tag_open += `([^>]|\\n)*>`
+      }
+
+      return root_tag_open
+    },
+
+    regexp_tag_close(prefix) {
+      const tag = this[`${prefix}_tag`]
+      return `</${tag}>`
+    },
+
+    copyToClipboard() {
+      const textarea = document.createElement('textarea');
+      textarea.value = this.result;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+  }
+}
+
+createApp(App).mount('#app');
+</script>
+</body>
+</html>
+
